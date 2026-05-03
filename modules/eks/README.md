@@ -19,7 +19,7 @@ Creates an Amazon EKS cluster and one managed node group in private subnets.
 
 ```hcl
 module "eks" {
-  source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/eks?ref=v1.1.0"
+  source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/eks?ref=v1.2.0"
 
   project_name       = var.project_name
   environment        = var.environment

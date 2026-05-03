@@ -13,9 +13,14 @@ variable "vpc_cidr" {
   type        = string
 }
 
-variable "public_subnet_cidr" {
-  description = "CIDR block for the public subnet."
-  type        = string
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for the public subnets."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.public_subnet_cidrs) >= 2
+    error_message = "Provide at least two public subnet CIDR blocks."
+  }
 }
 
 variable "private_subnet_cidrs" {

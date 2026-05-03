@@ -18,14 +18,24 @@ variable "public_subnet_cidr" {
   type        = string
 }
 
-variable "private_subnet_cidr" {
-  description = "CIDR block for the private subnet."
-  type        = string
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for the private subnets."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.private_subnet_cidrs) >= 2
+    error_message = "Provide at least two private subnet CIDR blocks."
+  }
 }
 
-variable "availability_zone" {
-  description = "Availability zone where the public and private subnets will be created."
-  type        = string
+variable "availability_zones" {
+  description = "Availability zones where the public and private subnets will be created."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.availability_zones) >= 2
+    error_message = "Provide at least two Availability Zones."
+  }
 }
 
 variable "tags" {

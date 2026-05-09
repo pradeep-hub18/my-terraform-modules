@@ -31,14 +31,14 @@ module "networking" {
 Source path:
 
 ```hcl
-source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/eks?ref=v1.2.0"
+source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/eks?ref=v1.5.0"
 ```
 
 Example:
 
 ```hcl
 module "eks" {
-  source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/eks?ref=v1.2.0"
+  source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/eks?ref=v1.5.0"
 
   project_name       = var.project_name
   environment        = var.environment
@@ -49,6 +49,13 @@ module "eks" {
 ```
 
 The EKS module creates the control plane IAM role, managed node group IAM role, required AWS managed policy attachments, an allow-all security group, and a managed node group with two `t3.large` workers by default.
+
+The EKS module also installs platform add-ons by default:
+
+- Argo CD
+- AWS Load Balancer Controller
+- AWS EBS CSI driver and a default `gp3` StorageClass
+- Istio base, istiod, and Istio ingress gateway with `ClusterIP` service type
 
 EKS requires private subnets in at least two Availability Zones. The networking module now creates multiple private subnets and exports them as `private_subnet_ids` for the EKS module.
 

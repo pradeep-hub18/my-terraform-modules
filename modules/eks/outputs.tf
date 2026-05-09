@@ -63,3 +63,43 @@ output "argocd_chart_version" {
   description = "Deployed Argo CD Helm chart version."
   value       = var.enable_argocd ? helm_release.argocd[0].version : null
 }
+
+output "aws_load_balancer_controller_role_arn" {
+  description = "IAM role ARN used by AWS Load Balancer Controller."
+  value       = var.enable_aws_load_balancer_controller ? aws_iam_role.aws_load_balancer_controller[0].arn : null
+}
+
+output "aws_load_balancer_controller_release_name" {
+  description = "Helm release name for AWS Load Balancer Controller."
+  value       = var.enable_aws_load_balancer_controller ? helm_release.aws_load_balancer_controller[0].name : null
+}
+
+output "ebs_csi_role_arn" {
+  description = "IAM role ARN used by AWS EBS CSI driver."
+  value       = var.enable_ebs_csi_driver ? aws_iam_role.ebs_csi[0].arn : null
+}
+
+output "ebs_csi_addon_arn" {
+  description = "ARN of the AWS EBS CSI EKS add-on."
+  value       = var.enable_ebs_csi_driver ? aws_eks_addon.ebs_csi[0].arn : null
+}
+
+output "ebs_gp3_storage_class_name" {
+  description = "Name of the gp3 EBS StorageClass."
+  value       = var.enable_ebs_csi_driver && var.enable_ebs_gp3_storage_class ? kubernetes_storage_class.ebs_gp3[0].metadata[0].name : null
+}
+
+output "istio_namespace" {
+  description = "Namespace where Istio is installed."
+  value       = var.enable_istio ? kubernetes_namespace.istio_system[0].metadata[0].name : null
+}
+
+output "istiod_release_name" {
+  description = "Helm release name for istiod."
+  value       = var.enable_istio ? helm_release.istiod[0].name : null
+}
+
+output "istio_ingress_gateway_release_name" {
+  description = "Helm release name for Istio ingress gateway."
+  value       = var.enable_istio && var.enable_istio_ingress_gateway ? helm_release.istio_ingress_gateway[0].name : null
+}

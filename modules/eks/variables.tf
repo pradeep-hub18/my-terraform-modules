@@ -125,6 +125,168 @@ variable "argocd_namespace_labels" {
   default     = {}
 }
 
+variable "enable_aws_load_balancer_controller" {
+  description = "Whether to install AWS Load Balancer Controller."
+  type        = bool
+  default     = true
+}
+
+variable "aws_load_balancer_controller_namespace" {
+  description = "Namespace where AWS Load Balancer Controller will be installed."
+  type        = string
+  default     = "kube-system"
+}
+
+variable "aws_load_balancer_controller_release_name" {
+  description = "Helm release name for AWS Load Balancer Controller."
+  type        = string
+  default     = "aws-load-balancer-controller"
+}
+
+variable "aws_load_balancer_controller_chart_repository" {
+  description = "Helm repository URL for AWS Load Balancer Controller."
+  type        = string
+  default     = "https://aws.github.io/eks-charts"
+}
+
+variable "aws_load_balancer_controller_chart_name" {
+  description = "Helm chart name for AWS Load Balancer Controller."
+  type        = string
+  default     = "aws-load-balancer-controller"
+}
+
+variable "aws_load_balancer_controller_chart_version" {
+  description = "Optional AWS Load Balancer Controller Helm chart version. Leave null to use the latest chart available from the repository."
+  type        = string
+  default     = null
+}
+
+variable "aws_load_balancer_controller_service_account_name" {
+  description = "Kubernetes service account name for AWS Load Balancer Controller."
+  type        = string
+  default     = "aws-load-balancer-controller"
+}
+
+variable "aws_load_balancer_controller_values" {
+  description = "Optional Helm values YAML documents for AWS Load Balancer Controller."
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_ebs_csi_driver" {
+  description = "Whether to install the AWS EBS CSI driver as an EKS add-on."
+  type        = bool
+  default     = true
+}
+
+variable "ebs_csi_driver_addon_version" {
+  description = "Optional AWS EBS CSI driver EKS add-on version. Leave null to use the default version for the cluster."
+  type        = string
+  default     = null
+}
+
+variable "enable_ebs_gp3_storage_class" {
+  description = "Whether to create a gp3 StorageClass backed by the EBS CSI driver."
+  type        = bool
+  default     = true
+}
+
+variable "ebs_gp3_storage_class_name" {
+  description = "Name of the gp3 EBS StorageClass."
+  type        = string
+  default     = "gp3"
+}
+
+variable "ebs_gp3_storage_class_is_default" {
+  description = "Whether to mark the gp3 StorageClass as the default StorageClass."
+  type        = bool
+  default     = true
+}
+
+variable "ebs_gp3_reclaim_policy" {
+  description = "Reclaim policy for the gp3 EBS StorageClass."
+  type        = string
+  default     = "Delete"
+}
+
+variable "enable_istio" {
+  description = "Whether to install Istio base and istiod."
+  type        = bool
+  default     = true
+}
+
+variable "istio_namespace" {
+  description = "Namespace where Istio will be installed."
+  type        = string
+  default     = "istio-system"
+}
+
+variable "istio_chart_repository" {
+  description = "Helm repository URL for Istio charts."
+  type        = string
+  default     = "https://istio-release.storage.googleapis.com/charts"
+}
+
+variable "istio_chart_version" {
+  description = "Optional Istio Helm chart version. Leave null to use the latest chart available from the repository."
+  type        = string
+  default     = null
+}
+
+variable "istio_base_release_name" {
+  description = "Helm release name for Istio base."
+  type        = string
+  default     = "istio-base"
+}
+
+variable "istiod_release_name" {
+  description = "Helm release name for istiod."
+  type        = string
+  default     = "istiod"
+}
+
+variable "istio_base_values" {
+  description = "Optional Helm values YAML documents for Istio base."
+  type        = list(string)
+  default     = []
+}
+
+variable "istiod_values" {
+  description = "Optional Helm values YAML documents for istiod."
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_istio_ingress_gateway" {
+  description = "Whether to install the Istio ingress gateway Helm chart."
+  type        = bool
+  default     = true
+}
+
+variable "istio_ingress_gateway_release_name" {
+  description = "Helm release name for Istio ingress gateway."
+  type        = string
+  default     = "istio-ingressgateway"
+}
+
+variable "istio_ingress_gateway_service_type" {
+  description = "Kubernetes Service type for Istio ingress gateway. Use ClusterIP for ALB Ingress based exposure."
+  type        = string
+  default     = "ClusterIP"
+}
+
+variable "istio_ingress_gateway_values" {
+  description = "Optional Helm values YAML documents for Istio ingress gateway."
+  type        = list(string)
+  default     = []
+}
+
+variable "addon_helm_timeout" {
+  description = "Time in seconds to wait for platform add-on Helm releases to become ready."
+  type        = number
+  default     = 600
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources."
   type        = map(string)

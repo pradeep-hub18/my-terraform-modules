@@ -44,12 +44,9 @@ resource "aws_ecr_lifecycle_policy" "this" {
       },
       {
         rulePriority = 2
-        description  = "Keep the last ${var.max_tagged_image_count} tagged images"
+        description  = "Keep the last ${var.max_tagged_image_count} images"
         selection = {
-          tagStatus = "tagged"
-          tagPrefixList = [
-            ""
-          ]
+          tagStatus   = "any"
           countType   = "imageCountMoreThan"
           countNumber = var.max_tagged_image_count
         }

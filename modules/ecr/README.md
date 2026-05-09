@@ -8,7 +8,7 @@ The module also creates an IAM managed policy that grants full access to the man
 
 ```hcl
 module "ecr" {
-  source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/ecr?ref=v1.4.0"
+  source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/ecr?ref=v1.5.2"
 
   project_name = "microservices-demo-app"
   environment  = "DEV"

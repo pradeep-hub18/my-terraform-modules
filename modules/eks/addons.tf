@@ -254,6 +254,11 @@ resource "helm_release" "aws_load_balancer_controller" {
     value = aws_iam_role.aws_load_balancer_controller[0].arn
   }
 
+  set {
+    name  = "enableServiceMutatorWebhook"
+    value = "false"
+  }
+
   depends_on = [
     aws_eks_node_group.this,
     aws_iam_role_policy_attachment.aws_load_balancer_controller
@@ -384,7 +389,8 @@ resource "helm_release" "istio_base" {
   timeout    = var.addon_helm_timeout
 
   depends_on = [
-    kubernetes_namespace.istio_system
+    kubernetes_namespace.istio_system,
+    helm_release.aws_load_balancer_controller
   ]
 }
 

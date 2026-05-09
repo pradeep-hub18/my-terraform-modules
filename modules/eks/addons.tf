@@ -84,6 +84,7 @@ data "aws_iam_policy_document" "aws_load_balancer_controller" {
       "ec2:DescribeInternetGateways",
       "ec2:DescribeIpamPools",
       "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeRouteTables",
       "ec2:DescribeSecurityGroups",
       "ec2:DescribeSubnets",
       "ec2:DescribeTags",

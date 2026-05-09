@@ -4,6 +4,8 @@ Creates one or more Amazon ECR repositories for application images.
 
 The module also creates an IAM managed policy that grants full access to the managed repositories. Attach it to the IAM user, role, or group used by Jenkins when Jenkins needs to push images to ECR.
 
+By default, repositories use `force_delete = true` so Terraform destroy can delete existing images before deleting the repository.
+
 ## Example
 
 ```hcl
@@ -21,6 +23,8 @@ module "ecr" {
   full_access_iam_user_names = [
     "pradeep-IAM"
   ]
+
+  force_delete = true
 
   tags = {
     Owner = "platform-team"

@@ -30,9 +30,9 @@ variable "image_tag_mutability" {
 }
 
 variable "force_delete" {
-  description = "Whether to delete repositories even when images exist."
+  description = "Whether to delete images automatically when destroying repositories."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "scan_on_push" {

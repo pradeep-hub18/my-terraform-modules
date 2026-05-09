@@ -74,3 +74,35 @@ module "nlb" {
   tags                                   = var.tags
 }
 ```
+
+## ECR Module
+
+Source path:
+
+```hcl
+source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/ecr?ref=v1.4.0"
+```
+
+Example:
+
+```hcl
+module "ecr" {
+  source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/ecr?ref=v1.4.0"
+
+  project_name = "microservices-demo-app"
+  environment  = "DEV"
+
+  repository_names = [
+    "microapps/auth-service",
+    "microapps/catalog-service"
+  ]
+
+  full_access_iam_user_names = [
+    "pradeep-IAM"
+  ]
+
+  tags = {
+    Owner = "platform-team"
+  }
+}
+```

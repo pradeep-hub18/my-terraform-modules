@@ -112,6 +112,30 @@ variable "repository_full_access_principal_arns" {
   default     = []
 }
 
+variable "create_ci_push_policy" {
+  description = "Whether to create a least-privilege IAM policy for CI systems to push images to these repositories."
+  type        = bool
+  default     = false
+}
+
+variable "ci_push_policy_name" {
+  description = "Optional IAM policy name for CI image push access."
+  type        = string
+  default     = null
+}
+
+variable "ci_push_iam_role_names" {
+  description = "IAM role names to attach the CI image push policy to."
+  type        = list(string)
+  default     = []
+}
+
+variable "ci_push_iam_user_names" {
+  description = "IAM user names to attach the CI image push policy to. Prefer roles for production."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources."
   type        = map(string)

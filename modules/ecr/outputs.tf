@@ -34,3 +34,13 @@ output "full_access_policy_name" {
   description = "Name of the IAM policy granting full access to the managed ECR repositories."
   value       = var.create_full_access_policy ? aws_iam_policy.full_access[0].name : null
 }
+
+output "ci_push_policy_arn" {
+  description = "ARN of the least-privilege IAM policy for CI image push access."
+  value       = var.create_ci_push_policy ? aws_iam_policy.ci_push[0].arn : null
+}
+
+output "ci_push_policy_name" {
+  description = "Name of the least-privilege IAM policy for CI image push access."
+  value       = var.create_ci_push_policy ? aws_iam_policy.ci_push[0].name : null
+}

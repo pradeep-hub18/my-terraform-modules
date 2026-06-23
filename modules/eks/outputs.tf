@@ -21,7 +21,12 @@ output "cluster_certificate_authority_data" {
 
 output "cluster_security_group_id" {
   description = "Security group ID created for the EKS cluster."
-  value       = aws_security_group.eks_allow_all.id
+  value       = aws_security_group.cluster.id
+}
+
+output "node_security_group_id" {
+  description = "Security group ID created for the EKS managed node group."
+  value       = aws_security_group.node_group.id
 }
 
 output "cluster_iam_role_arn" {
@@ -44,9 +49,29 @@ output "node_group_iam_role_arn" {
   value       = aws_iam_role.node_group.arn
 }
 
+output "node_group_iam_role_name" {
+  description = "Name of the IAM role used by the EKS managed node group."
+  value       = aws_iam_role.node_group.name
+}
+
 output "node_group_autoscaling_group_names" {
   description = "Auto Scaling Group names backing the EKS managed node group."
   value       = aws_eks_node_group.this.resources[0].autoscaling_groups[*].name
+}
+
+output "oidc_provider_arn" {
+  description = "IAM OIDC provider ARN for the EKS cluster."
+  value       = try(aws_iam_openid_connect_provider.this[0].arn, null)
+}
+
+output "oidc_provider_url" {
+  description = "OIDC issuer URL for the EKS cluster."
+  value       = aws_eks_cluster.this.identity[0].oidc[0].issuer
+}
+
+output "oidc_provider_host" {
+  description = "OIDC issuer hostpath without the https:// prefix."
+  value       = replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")
 }
 
 output "argocd_namespace" {

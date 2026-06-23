@@ -1,0 +1,38 @@
+name: Terraform Modules
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate modules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: Validate each module
+        shell: bash
+        run: |
+          set -euo pipefail
+          for module_dir in modules/*; do
+            [ -d "$module_dir" ] || continue
+            echo "Validating $module_dir"
+            terraform -chdir="$module_dir" init -backend=false
+            terraform -chdir="$module_dir" validate
+          done

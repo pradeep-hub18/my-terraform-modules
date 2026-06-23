@@ -41,6 +41,18 @@ variable "endpoint_public_access" {
   default     = true
 }
 
+variable "endpoint_public_access_cidrs" {
+  description = "CIDR blocks allowed to access the public EKS API endpoint when public endpoint access is enabled."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "enable_irsa" {
+  description = "Whether to create the IAM OIDC provider used by IRSA roles."
+  type        = bool
+  default     = true
+}
+
 variable "node_instance_types" {
   description = "EC2 instance types for the EKS managed node group."
   type        = list(string)

@@ -57,9 +57,33 @@ The EKS module also installs platform add-ons by default:
 - AWS EBS CSI driver and a default `gp3` StorageClass
 - Istio base, istiod, and Istio ingress gateway with `ClusterIP` service type
 
+For production-style stacks, prefer creating the EKS cluster with add-on flags disabled and installing controllers through `modules/eks-platform`. The add-on flags remain in `modules/eks` for compatibility with existing consumers.
+
 EKS requires private subnets in at least two Availability Zones. The networking module now creates multiple private subnets and exports them as `private_subnet_ids` for the EKS module.
 
+## EKS Platform Module
+
+Source path:
+
+```hcl
+source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/eks-platform?ref=main"
+```
+
+Installs AWS Load Balancer Controller, EBS CSI, Istio, Argo CD, External Secrets Operator, and Metrics Server on an existing EKS cluster using IRSA.
+
+## Edge Routing Module
+
+Source path:
+
+```hcl
+source = "git::https://github.com/pradeep-hub18/my-terraform-modules.git//modules/edge-routing?ref=main"
+```
+
+Creates the ACM certificate, DNS validation records, and WAF Web ACL used by the Kubernetes ALB Ingress.
+
 ## NLB Module
+
+This module is optional for TCP/internal workloads. Do not use it for the primary public HTTP/S microservices path when AWS Load Balancer Controller and Istio ALB Ingress are enabled.
 
 Source path:
 

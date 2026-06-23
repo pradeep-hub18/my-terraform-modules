@@ -1,32 +1,3 @@
-data "aws_region" "current" {}
-
-data "tls_certificate" "eks_oidc" {
-  count = var.enable_irsa || var.enable_aws_load_balancer_controller || var.enable_ebs_csi_driver ? 1 : 0
-
-  url = aws_eks_cluster.this.identity[0].oidc[0].issuer
-}
-
-resource "aws_iam_openid_connect_provider" "this" {
-  count = var.enable_irsa || var.enable_aws_load_balancer_controller || var.enable_ebs_csi_driver ? 1 : 0
-
-  url = aws_eks_cluster.this.identity[0].oidc[0].issuer
-
-  client_id_list = [
-    "sts.amazonaws.com"
-  ]
-
-  thumbprint_list = [
-    data.tls_certificate.eks_oidc[0].certificates[0].sha1_fingerprint
-  ]
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-eks-oidc-provider"
-    }
-  )
-}
-
 data "aws_iam_policy_document" "aws_load_balancer_controller_assume_role" {
   count = var.enable_aws_load_balancer_controller ? 1 : 0
 
@@ -35,18 +6,18 @@ data "aws_iam_policy_document" "aws_load_balancer_controller_assume_role" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.this[0].arn]
+      identifiers = [var.oidc_provider_arn]
     }
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:aud"
+      variable = "${var.oidc_provider_host}:aud"
       values   = ["sts.amazonaws.com"]
     }
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      variable = "${var.oidc_provider_host}:sub"
       values   = ["system:serviceaccount:${var.aws_load_balancer_controller_namespace}:${var.aws_load_balancer_controller_service_account_name}"]
     }
   }
@@ -58,12 +29,7 @@ resource "aws_iam_role" "aws_load_balancer_controller" {
   name               = "${local.name_prefix}-aws-lbc-role"
   assume_role_policy = data.aws_iam_policy_document.aws_load_balancer_controller_assume_role[0].json
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-aws-lbc-role"
-    }
-  )
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-aws-lbc-role" })
 }
 
 data "aws_iam_policy_document" "aws_load_balancer_controller" {
@@ -106,9 +72,6 @@ data "aws_iam_policy_document" "aws_load_balancer_controller" {
       "iam:ListServerCertificates",
       "shield:DescribeProtection",
       "shield:GetSubscriptionState",
-      "waf-regional:GetWebACL",
-      "waf-regional:GetWebACLForResource",
-      "waf-regional:ListResourcesForWebACL",
       "wafv2:GetWebACL",
       "wafv2:GetWebACLForResource",
       "wafv2:ListResourcesForWebACL"
@@ -118,39 +81,14 @@ data "aws_iam_policy_document" "aws_load_balancer_controller" {
   }
 
   statement {
-    sid = "AllowLoadBalancerControllerCreateServiceLinkedRole"
-
-    actions = [
-      "iam:CreateServiceLinkedRole"
-    ]
-
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "iam:AWSServiceName"
-      values   = ["elasticloadbalancing.amazonaws.com"]
-    }
-  }
-
-  statement {
-    sid = "AllowLoadBalancerControllerSecurityGroups"
+    sid = "AllowLoadBalancerControllerMutations"
 
     actions = [
       "ec2:AuthorizeSecurityGroupIngress",
       "ec2:CreateSecurityGroup",
       "ec2:CreateTags",
       "ec2:DeleteSecurityGroup",
-      "ec2:RevokeSecurityGroupIngress"
-    ]
-
-    resources = ["*"]
-  }
-
-  statement {
-    sid = "AllowLoadBalancerControllerElb"
-
-    actions = [
+      "ec2:RevokeSecurityGroupIngress",
       "elasticloadbalancing:AddListenerCertificates",
       "elasticloadbalancing:AddTags",
       "elasticloadbalancing:CreateListener",
@@ -174,20 +112,10 @@ data "aws_iam_policy_document" "aws_load_balancer_controller" {
       "elasticloadbalancing:SetRulePriorities",
       "elasticloadbalancing:SetSecurityGroups",
       "elasticloadbalancing:SetSubnets",
-      "elasticloadbalancing:SetWebAcl"
-    ]
-
-    resources = ["*"]
-  }
-
-  statement {
-    sid = "AllowLoadBalancerControllerWafShield"
-
-    actions = [
+      "elasticloadbalancing:SetWebAcl",
+      "iam:CreateServiceLinkedRole",
       "shield:CreateProtection",
       "shield:DeleteProtection",
-      "waf-regional:AssociateWebACL",
-      "waf-regional:DisassociateWebACL",
       "wafv2:AssociateWebACL",
       "wafv2:DisassociateWebACL"
     ]
@@ -200,7 +128,7 @@ resource "aws_iam_policy" "aws_load_balancer_controller" {
   count = var.enable_aws_load_balancer_controller ? 1 : 0
 
   name        = "${local.name_prefix}-aws-lbc-policy"
-  description = "Permissions for AWS Load Balancer Controller in ${aws_eks_cluster.this.name}."
+  description = "Permissions for AWS Load Balancer Controller in ${var.cluster_name}."
   policy      = data.aws_iam_policy_document.aws_load_balancer_controller[0].json
 
   tags = local.common_tags
@@ -216,9 +144,9 @@ resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
 resource "helm_release" "aws_load_balancer_controller" {
   count = var.enable_aws_load_balancer_controller ? 1 : 0
 
-  name       = var.aws_load_balancer_controller_release_name
-  repository = var.aws_load_balancer_controller_chart_repository
-  chart      = var.aws_load_balancer_controller_chart_name
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
   version    = var.aws_load_balancer_controller_chart_version
   namespace  = var.aws_load_balancer_controller_namespace
   values     = var.aws_load_balancer_controller_values
@@ -227,7 +155,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "clusterName"
-    value = aws_eks_cluster.this.name
+    value = var.cluster_name
   }
 
   set {
@@ -260,10 +188,7 @@ resource "helm_release" "aws_load_balancer_controller" {
     value = "false"
   }
 
-  depends_on = [
-    aws_eks_node_group.this,
-    aws_iam_role_policy_attachment.aws_load_balancer_controller
-  ]
+  depends_on = [aws_iam_role_policy_attachment.aws_load_balancer_controller]
 }
 
 data "aws_iam_policy_document" "ebs_csi_assume_role" {
@@ -274,18 +199,18 @@ data "aws_iam_policy_document" "ebs_csi_assume_role" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.this[0].arn]
+      identifiers = [var.oidc_provider_arn]
     }
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:aud"
+      variable = "${var.oidc_provider_host}:aud"
       values   = ["sts.amazonaws.com"]
     }
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      variable = "${var.oidc_provider_host}:sub"
       values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
     }
   }
@@ -297,12 +222,7 @@ resource "aws_iam_role" "ebs_csi" {
   name               = "${local.name_prefix}-ebs-csi-role"
   assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume_role[0].json
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-ebs-csi-role"
-    }
-  )
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-ebs-csi-role" })
 }
 
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
@@ -315,23 +235,15 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 resource "aws_eks_addon" "ebs_csi" {
   count = var.enable_ebs_csi_driver ? 1 : 0
 
-  cluster_name             = aws_eks_cluster.this.name
+  cluster_name             = var.cluster_name
   addon_name               = "aws-ebs-csi-driver"
   addon_version            = var.ebs_csi_driver_addon_version
   resolve_conflicts        = "OVERWRITE"
   service_account_role_arn = aws_iam_role.ebs_csi[0].arn
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-aws-ebs-csi-driver"
-    }
-  )
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-aws-ebs-csi-driver" })
 
-  depends_on = [
-    aws_eks_node_group.this,
-    aws_iam_role_policy_attachment.ebs_csi
-  ]
+  depends_on = [aws_iam_role_policy_attachment.ebs_csi]
 }
 
 resource "kubernetes_storage_class" "ebs_gp3" {
@@ -340,13 +252,13 @@ resource "kubernetes_storage_class" "ebs_gp3" {
   metadata {
     name = var.ebs_gp3_storage_class_name
 
-    annotations = var.ebs_gp3_storage_class_is_default ? {
+    annotations = {
       "storageclass.kubernetes.io/is-default-class" = "true"
-    } : {}
+    }
   }
 
   storage_provisioner    = "ebs.csi.aws.com"
-  reclaim_policy         = var.ebs_gp3_reclaim_policy
+  reclaim_policy         = "Delete"
   volume_binding_mode    = "WaitForFirstConsumer"
   allow_volume_expansion = true
 
@@ -355,9 +267,7 @@ resource "kubernetes_storage_class" "ebs_gp3" {
     encrypted = "true"
   }
 
-  depends_on = [
-    aws_eks_addon.ebs_csi
-  ]
+  depends_on = [aws_eks_addon.ebs_csi]
 }
 
 resource "kubernetes_namespace" "istio_system" {
@@ -371,60 +281,196 @@ resource "kubernetes_namespace" "istio_system" {
       "app.kubernetes.io/managed-by" = "terraform"
     }
   }
-
-  depends_on = [
-    aws_eks_node_group.this
-  ]
 }
 
 resource "helm_release" "istio_base" {
   count = var.enable_istio ? 1 : 0
 
-  name       = var.istio_base_release_name
-  repository = var.istio_chart_repository
+  name       = "istio-base"
+  repository = "https://istio-release.storage.googleapis.com/charts"
   chart      = "base"
   version    = var.istio_chart_version
   namespace  = kubernetes_namespace.istio_system[0].metadata[0].name
-  values     = var.istio_base_values
   wait       = true
   timeout    = var.addon_helm_timeout
-
-  depends_on = [
-    kubernetes_namespace.istio_system,
-    helm_release.aws_load_balancer_controller
-  ]
 }
 
 resource "helm_release" "istiod" {
   count = var.enable_istio ? 1 : 0
 
-  name       = var.istiod_release_name
-  repository = var.istio_chart_repository
+  name       = "istiod"
+  repository = "https://istio-release.storage.googleapis.com/charts"
   chart      = "istiod"
   version    = var.istio_chart_version
   namespace  = kubernetes_namespace.istio_system[0].metadata[0].name
-  values     = var.istiod_values
   wait       = true
   timeout    = var.addon_helm_timeout
 
-  depends_on = [
-    helm_release.istio_base
-  ]
+  depends_on = [helm_release.istio_base]
 }
 
 resource "helm_release" "istio_ingress_gateway" {
   count = var.enable_istio && var.enable_istio_ingress_gateway ? 1 : 0
 
-  name       = var.istio_ingress_gateway_release_name
-  repository = var.istio_chart_repository
+  name       = "istio-ingressgateway"
+  repository = "https://istio-release.storage.googleapis.com/charts"
   chart      = "gateway"
   version    = var.istio_chart_version
   namespace  = var.istio_namespace
-  values     = concat([yamlencode({ service = { type = var.istio_ingress_gateway_service_type } })], var.istio_ingress_gateway_values)
+  values     = [yamlencode({ service = { type = var.istio_ingress_gateway_service_type } })]
   wait       = true
   timeout    = var.addon_helm_timeout
 
-  depends_on = [
-    helm_release.istiod
-  ]
+  depends_on = [helm_release.istiod]
+}
+
+resource "kubernetes_namespace" "argocd" {
+  count = var.enable_argocd ? 1 : 0
+
+  metadata {
+    name = var.argocd_namespace
+
+    labels = {
+      "app.kubernetes.io/name"       = "argocd"
+      "app.kubernetes.io/managed-by" = "terraform"
+    }
+  }
+}
+
+resource "helm_release" "argocd" {
+  count = var.enable_argocd ? 1 : 0
+
+  name             = "argocd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  version          = var.argocd_chart_version
+  namespace        = kubernetes_namespace.argocd[0].metadata[0].name
+  create_namespace = false
+  values           = var.argocd_values
+  wait             = true
+  timeout          = var.addon_helm_timeout
+}
+
+resource "kubernetes_namespace" "external_secrets" {
+  count = var.enable_external_secrets ? 1 : 0
+
+  metadata {
+    name = var.external_secrets_namespace
+
+    labels = {
+      "app.kubernetes.io/name"       = "external-secrets"
+      "app.kubernetes.io/managed-by" = "terraform"
+    }
+  }
+}
+
+data "aws_iam_policy_document" "external_secrets_assume_role" {
+  count = var.enable_external_secrets ? 1 : 0
+
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [var.oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_provider_host}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_provider_host}:sub"
+      values   = ["system:serviceaccount:${var.external_secrets_namespace}:${var.external_secrets_service_account_name}"]
+    }
+  }
+}
+
+resource "aws_iam_role" "external_secrets" {
+  count = var.enable_external_secrets ? 1 : 0
+
+  name               = "${local.name_prefix}-external-secrets-role"
+  assume_role_policy = data.aws_iam_policy_document.external_secrets_assume_role[0].json
+
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-external-secrets-role" })
+}
+
+data "aws_iam_policy_document" "external_secrets" {
+  count = var.enable_external_secrets ? 1 : 0
+
+  statement {
+    actions = [
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:ListSecrets",
+      "ssm:GetParameter",
+      "ssm:GetParameters"
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "external_secrets" {
+  count = var.enable_external_secrets ? 1 : 0
+
+  name        = "${local.name_prefix}-external-secrets-policy"
+  description = "Permissions for External Secrets Operator in ${var.cluster_name}."
+  policy      = data.aws_iam_policy_document.external_secrets[0].json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "external_secrets" {
+  count = var.enable_external_secrets ? 1 : 0
+
+  role       = aws_iam_role.external_secrets[0].name
+  policy_arn = aws_iam_policy.external_secrets[0].arn
+}
+
+resource "helm_release" "external_secrets" {
+  count = var.enable_external_secrets ? 1 : 0
+
+  name             = "external-secrets"
+  repository       = "https://charts.external-secrets.io"
+  chart            = "external-secrets"
+  version          = var.external_secrets_chart_version
+  namespace        = kubernetes_namespace.external_secrets[0].metadata[0].name
+  create_namespace = false
+  values           = var.external_secrets_values
+  wait             = true
+  timeout          = var.addon_helm_timeout
+
+  set {
+    name  = "serviceAccount.create"
+    value = "true"
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = var.external_secrets_service_account_name
+  }
+
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.external_secrets[0].arn
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.external_secrets]
+}
+
+resource "helm_release" "metrics_server" {
+  count = var.enable_metrics_server ? 1 : 0
+
+  name       = "metrics-server"
+  repository = "https://kubernetes-sigs.github.io/metrics-server/"
+  chart      = "metrics-server"
+  version    = var.metrics_server_chart_version
+  namespace  = "kube-system"
+  values     = var.metrics_server_values
+  wait       = true
+  timeout    = var.addon_helm_timeout
 }

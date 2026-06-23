@@ -64,21 +64,13 @@ resource "aws_iam_role_policy_attachment" "node_ecr_read_only" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-resource "aws_security_group" "eks_allow_all" {
-  name        = "${local.name_prefix}-eks-allow-all-sg"
-  description = "Allow all inbound and outbound traffic for EKS."
+resource "aws_security_group" "cluster" {
+  name        = "${local.name_prefix}-eks-cluster-sg"
+  description = "Security group for the EKS control plane."
   vpc_id      = var.vpc_id
 
-  ingress {
-    description = "Allow all inbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   egress {
-    description = "Allow all outbound traffic"
+    description = "Allow control plane egress"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -88,9 +80,61 @@ resource "aws_security_group" "eks_allow_all" {
   tags = merge(
     local.common_tags,
     {
-      Name = "${local.name_prefix}-eks-allow-all-sg"
+      Name = "${local.name_prefix}-eks-cluster-sg"
     }
   )
+}
+
+resource "aws_security_group" "node_group" {
+  name        = "${local.name_prefix}-eks-node-sg"
+  description = "Security group for EKS managed node group instances."
+  vpc_id      = var.vpc_id
+
+  egress {
+    description = "Allow node egress"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name                                                     = "${local.name_prefix}-eks-node-sg"
+      "kubernetes.io/cluster/${local.name_prefix}-eks-cluster" = "owned"
+    }
+  )
+}
+
+resource "aws_security_group_rule" "cluster_ingress_nodes_https" {
+  description              = "Allow nodes to call the Kubernetes API server."
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.node_group.id
+  security_group_id        = aws_security_group.cluster.id
+}
+
+resource "aws_security_group_rule" "node_ingress_self" {
+  description              = "Allow node-to-node traffic."
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.node_group.id
+  security_group_id        = aws_security_group.node_group.id
+}
+
+resource "aws_security_group_rule" "node_ingress_cluster_webhooks" {
+  description              = "Allow EKS control plane to reach node webhooks and kubelet."
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 10250
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.cluster.id
+  security_group_id        = aws_security_group.node_group.id
 }
 
 resource "aws_eks_cluster" "this" {
@@ -100,9 +144,10 @@ resource "aws_eks_cluster" "this" {
 
   vpc_config {
     subnet_ids              = var.private_subnet_ids
-    security_group_ids      = [aws_security_group.eks_allow_all.id]
+    security_group_ids      = [aws_security_group.cluster.id]
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
+    public_access_cidrs     = var.endpoint_public_access_cidrs
   }
 
   tags = merge(
@@ -119,7 +164,7 @@ resource "aws_eks_cluster" "this" {
 
 resource "aws_launch_template" "node_group" {
   name_prefix            = "${local.name_prefix}-eks-node-"
-  vpc_security_group_ids = [aws_security_group.eks_allow_all.id]
+  vpc_security_group_ids = [aws_security_group.node_group.id]
   update_default_version = true
 
   block_device_mappings {

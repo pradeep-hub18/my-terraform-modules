@@ -136,3 +136,60 @@ resource "aws_ecr_repository_policy" "full_access" {
   repository = each.value.name
   policy     = data.aws_iam_policy_document.repository_full_access[each.key].json
 }
+
+data "aws_iam_policy_document" "ci_push" {
+  count = var.create_ci_push_policy ? 1 : 0
+
+  statement {
+    sid = "AllowEcrAuthorizationToken"
+
+    actions = [
+      "ecr:GetAuthorizationToken"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowRepositoryImagePush"
+
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:DescribeImages",
+      "ecr:DescribeRepositories",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:InitiateLayerUpload",
+      "ecr:ListImages",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart"
+    ]
+
+    resources = local.repository_arns
+  }
+}
+
+resource "aws_iam_policy" "ci_push" {
+  count = var.create_ci_push_policy ? 1 : 0
+
+  name        = coalesce(var.ci_push_policy_name, "${local.name_prefix}-ecr-ci-push")
+  description = "Least-privilege CI image push permissions for repositories managed by ${local.name_prefix}."
+  policy      = data.aws_iam_policy_document.ci_push[0].json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "ci_push" {
+  for_each = var.create_ci_push_policy ? toset(var.ci_push_iam_role_names) : toset([])
+
+  role       = each.value
+  policy_arn = aws_iam_policy.ci_push[0].arn
+}
+
+resource "aws_iam_user_policy_attachment" "ci_push" {
+  for_each = var.create_ci_push_policy ? toset(var.ci_push_iam_user_names) : toset([])
+
+  user       = each.value
+  policy_arn = aws_iam_policy.ci_push[0].arn
+}
